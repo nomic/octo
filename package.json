@@ -11,6 +11,6 @@
     "lodash": "^2.4.1",
     "minimatch": "^1.0.0"
   },
-  "author": "",
+  "author": "Gabriel Silk and Aaron Boyd",
   "license": "ISC"
 }
