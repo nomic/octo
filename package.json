@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "bluebird": "^2.3.10",
+    "exposejs": "^0.0.1",
     "lodash": "^2.4.1",
     "minimatch": "^1.0.0"
   },

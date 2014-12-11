@@ -3,7 +3,8 @@
 var _ = require('lodash'),
     assert = require('assert'),
     Promise = require('bluebird'),
-    minimatch = require('minimatch');
+    minimatch = require('minimatch'),
+    expose = require('exposejs');
 
 function existy(val) {
   return (val !== null && val !== undefined);
@@ -32,7 +33,6 @@ function parseParams(fn) {
 }
 
 module.exports = function() {
-  var expose = require('nomic/util/exposer')();
   var curBundle = [];
   var resolved = {
   };
