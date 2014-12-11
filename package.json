@@ -1,5 +1,5 @@
 {
-  "name": "octo",
+  "name": "octojs",
   "version": "0.0.1",
   "description": "Dependency injection system",
   "main": "index.js",
