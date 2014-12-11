@@ -59,10 +59,10 @@ module.exports = function() {
     _.each(nodeDef.params, function(depName) {
 
       //lazily load unloaded nodes
-      if (!_s.existy(dependencies[depName])) {
+      if (!existy(dependencies[depName])) {
         var depDef = unresolved[depName];
         assert(
-          _s.existy(depDef),
+          existy(depDef),
           'Dependency not found: *' + depName + '* <-- ' + nodeDef.name);
         assert(
           visible(nodeDef.bundle, depDef.visibility),
@@ -98,7 +98,7 @@ module.exports = function() {
     var nodeDef = unresolved[nodeName];
     var bundle = curBundle.join('.');
     assert(
-      _s.existy(nodeDef),
+      existy(nodeDef),
       'Not found: *' + nodeName + '* <-- ');
     assert(
       opts.allScopes || visible(bundle, nodeDef.visibility),
@@ -112,7 +112,7 @@ module.exports = function() {
   function _listDependencies(nodeName) {
     var nodeDef = resolved[nodeName] || unresolved[nodeName];
     assert(
-      _s.existy(nodeDef),
+      existy(nodeDef),
       'Not found: *' + nodeName + '*');
     var depNames = _.clone(nodeDef.params);
     _.each(nodeDef.params, function(depName) {
@@ -134,7 +134,7 @@ module.exports = function() {
       'expected a function for ' + name + ', but got: ', fn);
       unresolved[name] = {
         name: name,
-        params: _s.parseParams(fn),
+        params: parseParams(fn),
         fn: fn,
         bundle: curBundle.join('.'),
         visibility: curBundle.join('.')
@@ -212,7 +212,7 @@ module.exports = function() {
       throw new TypeError('Expected function, but got: ' + fn);
     }
     return onInject.then(function() {
-      var nodeNames = _s.parseParams(fn);
+      var nodeNames = parseParams(fn);
       var nodePromises = _.map(nodeNames, function(nodeName) {
         return _resolveName(nodeName);
       });
