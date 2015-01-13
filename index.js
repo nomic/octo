@@ -36,6 +36,8 @@ module.exports = function() {
   var curBundle = [];
   var resolved = {
   };
+  var resolvedSync = {
+  };
   var unresolved = {
   };
   var errorHandler = defaultErrorHandler;
@@ -64,12 +66,6 @@ module.exports = function() {
         assert(
           existy(depDef),
           'Dependency not found: *' + depName + '* <-- ' + nodeDef.name);
-        assert(
-          visible(nodeDef.bundle, depDef.visibility),
-          'Dependency not visible: *'
-          + fullName(depDef) + '* <-- '
-          + fullName(nodeDef)
-          + '; consider using publish()');
         dependencies[depName] = resolveNode(depDef);
       }
 
@@ -77,7 +73,14 @@ module.exports = function() {
 
     // Get a correctly ordered array of promised arguments
     var depArray = _.map(nodeDef.params, function(param) {
-      return _.find(dependencies, {name:param}).promise;
+      var depDef = _.find(dependencies, {name:param});
+      assert(
+        visible(nodeDef.bundle, depDef.visibility),
+        'Dependency not visible: *'
+        + fullName(depDef) + '* <-- '
+        + fullName(nodeDef)
+        + '; consider using publish()');
+      return depDef.promise;
     });
     nodeDef.promise = Promise.all(depArray)
     .then(function(depVals) {
@@ -86,6 +89,71 @@ module.exports = function() {
 
     resolved[nodeDef.name] = nodeDef;
     return nodeDef;
+  }
+
+  function resolveNodeSync(nodeDef) {
+    var dependencies = _.pick(resolvedSync, nodeDef.params);
+    _.each(nodeDef.params, function(depName) {
+
+      //lazily load unloaded nodes
+      if (!existy(dependencies[depName])) {
+        var depDef = unresolved[depName];
+        assert(
+          existy(depDef),
+          'Dependency not found: *' + depName + '* <-- ' + nodeDef.name);
+        assert(
+          visible(nodeDef.bundle, depDef.visibility),
+          'Dependency not visible: *'
+          + fullName(depDef) + '* <-- '
+          + fullName(nodeDef)
+          + '; consider using publish()');
+        dependencies[depName] = resolveNodeSync(depDef);
+      }
+
+    });
+
+    // Get a correctly ordered array of arguments
+    var depArray = _.map(nodeDef.params, function(param) {
+      var depDef = _.find(dependencies, {name:param});
+      assert(
+        visible(nodeDef.bundle, depDef.visibility),
+        'Dependency not visible: *'
+        + fullName(depDef) + '* <-- '
+        + fullName(nodeDef)
+        + '; consider using publish()');
+      return depDef.value;
+    });
+    nodeDef.value = nodeDef.fn.apply(depArray);
+
+    resolvedSync[nodeDef.name] = nodeDef;
+    return nodeDef;
+  }
+
+  function _assertNodeExists(nodeDef, nodeName) {
+    assert(
+      existy(nodeDef),
+      'Not found: *' + nodeName + '*');
+  }
+
+  function _assertNodeVisible(nodeDef, bundle) {
+    assert(
+      visible(bundle, nodeDef.visibility),
+      'Not visible: *'
+      + fullName(nodeDef) + '* <-- '
+      + (bundle === '' ? '[root bundle]' : bundle)
+      + '; consider using publish()');
+  }
+
+  function _resolveNameSync(nodeName, opts) {
+    opts = _.defaults({}, opts, {
+      allScopes: false
+    });
+    var nodeDef = unresolved[nodeName];
+    var bundle = curBundle.join('.');
+    _assertNodeExists(nodeDef, nodeName);
+    _assertNodeVisible(nodeDef, nodeName);
+    if (!opts.allScopes) _assertNodeVisible(nodeDef, bundle);
+    return resolveNodeSync(nodeDef).value;
   }
 
   function _resolveName(nodeName, opts) {
@@ -97,15 +165,9 @@ module.exports = function() {
     }
     var nodeDef = unresolved[nodeName];
     var bundle = curBundle.join('.');
-    assert(
-      existy(nodeDef),
-      'Not found: *' + nodeName + '* <-- ');
-    assert(
-      opts.allScopes || visible(bundle, nodeDef.visibility),
-      'Not visible: *'
-      + fullName(nodeDef) + '* <-- '
-      + (bundle === '' ? '[root bundle]' : bundle)
-      + '; consider using publish()');
+    _assertNodeExists(nodeDef, nodeName);
+    _assertNodeVisible(nodeDef, nodeName);
+    if (!opts.allScopes) _assertNodeVisible(nodeDef, bundle);
     return resolveNode(nodeDef).promise;
   }
 
@@ -148,19 +210,9 @@ module.exports = function() {
       _.isPlainObject(dict),
       'injector.values expects a plain object, but got: '
         + dict);
-    _.each(_.keys(dict), function(key) {
-      delete unresolved[key];
-    });
-    var nodes = _.mapValues(dict, function(value, name) {
-      return {
-        name: name,
-        promise: Promise.resolve(value),
-        bundle: curBundle.join('.'),
-        visibility: curBundle.join('.')
-      };
-    });
-    _.extend(resolved, nodes);
-    return expose();
+    return factories(_.mapValues(dict, function(val) {
+      return function() { return val; }
+    }));
   }
 
   expose(factories);
@@ -230,6 +282,31 @@ module.exports = function() {
     return _.intersection(depNames, uniqDeps);
   }
 
+  // resolveSync()
+  //
+  // Some js frameworks or libraries assume code that they are running
+  // is run in a single node event loop tick.  For example, mocha
+  // makes this assumption to when collecting suites and tests and
+  // determining the hierarchy.  To support this, you can use
+  // resolveSync, though generally it should be avoided as it won't
+  // work for anything that requires a promise to be unwrapped.
+  expose(resolveSync);
+  function resolveSync(fn) {
+    if (!_.isFunction(fn)) {
+      throw new TypeError('Expected function, but got: ' + fn);
+    }
+    var nodeNames = parseParams(fn);
+    var values = _.map(nodeNames, function(nodeName) {
+      return _resolveNameSync(nodeName);
+    });
+    return fn.apply(null, values);
+  }
+
+  expose(resolveNameSync);
+  function resolveNameSync(nodeName) {
+    return _resolveNameSync(nodeName);
+  }
+
   expose(resolveName);
   function resolveName(nodeName, opts) {
     return onInject.then(function() {
@@ -244,6 +321,7 @@ module.exports = function() {
   expose(inject);
   function inject() {
     injectCalled();
+    return expose();
   }
 
   expose(terminal);
