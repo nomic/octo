@@ -4,7 +4,6 @@ var octojs = require('../index'),
 
 suite('octojs', function() {
 
-
   test('Resolve', function() {
     return octojs()
     .factories({
@@ -18,7 +17,7 @@ suite('octojs', function() {
     });
   });
 
-  test('Resolve Sync', function() {
+  test('Resolve sync', function() {
     var octo = octojs()
     .factories({
       someValue: function() {
@@ -27,10 +26,29 @@ suite('octojs', function() {
     })
     .inject();
 
-    expect(octo.resolveNameSync('someValue')).to.eql('value');
+    expect(octo.resolveNameSync('someValue')).to.equal('value');
     expect(octo.resolveSync(function(someValue) {
-      expect(someValue).to.eql('value');
+      expect(someValue).to.equal('value');
     }));
+  });
+
+  test('Resolve dependencies sync', function() {
+    var octo = octojs()
+    .values({
+      someValue: 'value'
+    })
+    .factories({
+      someOtherValue: function(someValue) {
+        return 'other' + someValue;
+      },
+      dependant: function(someValue, someOtherValue) {
+        return someValue + ' ' + someOtherValue;
+      }
+    })
+    .inject();
+
+    expect(octo.resolveNameSync('dependant'))
+    .to.equal('value othervalue');
   });
 
 });

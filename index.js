@@ -56,7 +56,7 @@ module.exports = function() {
     return scope + nodeDef.name;
   }
 
-  function resolveNode(nodeDef) {
+  function _resolveNode(nodeDef) {
     var dependencies = _.pick(resolved, nodeDef.params);
     _.each(nodeDef.params, function(depName) {
 
@@ -66,7 +66,7 @@ module.exports = function() {
         assert(
           existy(depDef),
           'Dependency not found: *' + depName + '* <-- ' + nodeDef.name);
-        dependencies[depName] = resolveNode(depDef);
+        dependencies[depName] = _resolveNode(depDef);
       }
 
     });
@@ -91,7 +91,7 @@ module.exports = function() {
     return nodeDef;
   }
 
-  function resolveNodeSync(nodeDef) {
+  function _resolveNodeSync(nodeDef) {
     var dependencies = _.pick(resolvedSync, nodeDef.params);
     _.each(nodeDef.params, function(depName) {
 
@@ -107,7 +107,7 @@ module.exports = function() {
           + fullName(depDef) + '* <-- '
           + fullName(nodeDef)
           + '; consider using publish()');
-        dependencies[depName] = resolveNodeSync(depDef);
+        dependencies[depName] = _resolveNodeSync(depDef);
       }
 
     });
@@ -123,7 +123,8 @@ module.exports = function() {
         + '; consider using publish()');
       return depDef.value;
     });
-    nodeDef.value = nodeDef.fn.apply(depArray);
+
+    nodeDef.value = nodeDef.fn.apply(null, depArray);
 
     resolvedSync[nodeDef.name] = nodeDef;
     return nodeDef;
@@ -151,9 +152,8 @@ module.exports = function() {
     var nodeDef = unresolved[nodeName];
     var bundle = curBundle.join('.');
     _assertNodeExists(nodeDef, nodeName);
-    _assertNodeVisible(nodeDef, nodeName);
     if (!opts.allScopes) _assertNodeVisible(nodeDef, bundle);
-    return resolveNodeSync(nodeDef).value;
+    return _resolveNodeSync(nodeDef).value;
   }
 
   function _resolveName(nodeName, opts) {
@@ -166,9 +166,8 @@ module.exports = function() {
     var nodeDef = unresolved[nodeName];
     var bundle = curBundle.join('.');
     _assertNodeExists(nodeDef, nodeName);
-    _assertNodeVisible(nodeDef, nodeName);
     if (!opts.allScopes) _assertNodeVisible(nodeDef, bundle);
-    return resolveNode(nodeDef).promise;
+    return _resolveNode(nodeDef).promise;
   }
 
   function _listDependencies(nodeName) {
@@ -211,7 +210,7 @@ module.exports = function() {
       'injector.values expects a plain object, but got: '
         + dict);
     return factories(_.mapValues(dict, function(val) {
-      return function() { return val; }
+      return function() { return val; };
     }));
   }
 
@@ -344,7 +343,7 @@ module.exports = function() {
     name: 'injector',
     promise: Promise.resolve(expose()),
     bundle: curBundle.join('.'),
-    scope: curBundle.join('.')
+    visibility: curBundle.join('.')
   };
 
   return expose();
